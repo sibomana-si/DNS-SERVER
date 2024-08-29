@@ -40,7 +40,7 @@ def main():
 
             logger.info(f"response: {dns_message['HEADER'].encode()} | length: {len(dns_message['HEADER'])}")
 
-            response = dns_message['HEADER'].encode()
+            response = int(dns_message['HEADER'], 2).to_bytes(length=12, byteorder='big')
             udp_socket.sendto(response, source)
         except Exception as e:
             logger.exception(f"Error receiving data: {e}")
