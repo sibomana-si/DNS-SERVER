@@ -44,10 +44,9 @@ def main():
             udp_socket.sendto(response, source)
         except Exception as e:
             logger.exception(f"Error receiving data: {e}")
+            break
         except KeyboardInterrupt:
             logger.exception("TERMINAL ERROR:")
-        finally:
-            logger.info("SERVER SHUT DOWN")
             break
 
 
