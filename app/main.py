@@ -19,6 +19,7 @@ def main():
             buf, source = udp_socket.recvfrom(512)
             logger.info(f"received: {buf} from: {source}")
 
+            # Header
             packet_id = bin(1234)[2:]
             query_response_indicator = '1'
             operation_code = '0000'
@@ -28,19 +29,30 @@ def main():
             recursion_available = '0'
             reserved = '000'
             response_code = '0000'
-            question_count = '0' * 16
-            answer_record_count = '0' * 16
-            authority_record_count = '0' * 16
-            additional_record_count = '0' * 16
+            question_count = '0'*15 + '1'
+            answer_record_count = '0'*16
+            authority_record_count = '0'*16
+            additional_record_count = '0'*16
 
-            dns_message['HEADER'] = (packet_id + query_response_indicator + operation_code + authoritative_answer
+            # Question
+            question_name = '\x0ccodecrafters\x02io\x00'.encode()
+            question_type = int('0x0001', 0).to_bytes(2, 'big')
+            question_class = int('0x0001', 0).to_bytes(2, 'big')
+
+
+            dns_message['HEADER'] = int((packet_id + query_response_indicator + operation_code + authoritative_answer
                                      + truncation + recursion_desired + recursion_available + reserved
                                      + response_code + question_count + answer_record_count + authority_record_count
-                                     + additional_record_count)
+                                     + additional_record_count), 2).to_bytes(12, 'big')
 
-            logger.info(f"response: {dns_message['HEADER'].encode()} | length: {len(dns_message['HEADER'])}")
+            dns_message['QUESTION'] = (question_name + question_type + question_class)
 
-            response = int(dns_message['HEADER'], 2).to_bytes(length=12, byteorder='big')
+            logger.info(f"response_header: {dns_message['HEADER']} | length: {len(dns_message['HEADER'])}")
+            logger.info(f"response_question: {dns_message['QUESTION']} | length: {len(dns_message['QUESTION'])}")
+
+
+            response = (dns_message['HEADER'] + dns_message['QUESTION'])
+            print(f"response: {response} | response_length: {len(response)}")
             udp_socket.sendto(response, source)
         except Exception as e:
             logger.exception(f"Error receiving data: {e}")
