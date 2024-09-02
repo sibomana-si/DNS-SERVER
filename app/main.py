@@ -30,7 +30,7 @@ def main():
             reserved = '000'
             response_code = '0000'
             question_count = '0'*15 + '1'
-            answer_record_count = '0'*16
+            answer_record_count = '0'*15 + '1'
             authority_record_count = '0'*16
             additional_record_count = '0'*16
 
@@ -39,19 +39,26 @@ def main():
             question_type = int('0x0001', 0).to_bytes(2, 'big')
             question_class = int('0x0001', 0).to_bytes(2, 'big')
 
+            # Answer
+            answer_ttl = int(60).to_bytes(4, 'big')
+            answer_length = int(4).to_bytes(2, 'big')
+            answer_data = b''.join(int(x, 0).to_bytes(1, 'big') for x in "8.8.8.8".split("."))
+
 
             dns_message['HEADER'] = int((packet_id + query_response_indicator + operation_code + authoritative_answer
                                      + truncation + recursion_desired + recursion_available + reserved
                                      + response_code + question_count + answer_record_count + authority_record_count
-                                     + additional_record_count), 2).to_bytes(12, 'big')
+                                     + additional_record_count), 2).to_bytes(length=12, byteorder='big')
 
             dns_message['QUESTION'] = (question_name + question_type + question_class)
 
+            dns_message['ANSWER'] = (dns_message['QUESTION'] + answer_ttl + answer_length + answer_data)
+
             logger.info(f"response_header: {dns_message['HEADER']} | length: {len(dns_message['HEADER'])}")
             logger.info(f"response_question: {dns_message['QUESTION']} | length: {len(dns_message['QUESTION'])}")
+            logger.info(f"response_answer: {dns_message['ANSWER']} | length: {len(dns_message['ANSWER'])}")
 
-
-            response = (dns_message['HEADER'] + dns_message['QUESTION'])
+            response = (dns_message['HEADER'] + dns_message['QUESTION'] + dns_message['ANSWER'])
             print(f"response: {response} | response_length: {len(response)}")
             udp_socket.sendto(response, source)
         except Exception as e:
