@@ -49,7 +49,7 @@ def main():
 
 def generate_response(buf: bytes) -> bytes:
     dns_header = generate_response_header(buf)
-    dns_question = generate_response_question()
+    dns_question = generate_response_question(buf)
     dns_answer = generate_response_answer(dns_question)
 
     dns_message = Message(dns_header, dns_question, dns_answer)
@@ -85,8 +85,12 @@ def generate_response_header(buf: bytes) -> bytes:
     return dns_header
 
 
-def generate_response_question() -> bytes:
-    question_name = '\x0ccodecrafters\x02io\x00'.encode()
+def generate_response_question(buf) -> bytes:
+    buf_index = 12
+    for buf_index in range(12, len(buf)):
+        if buf[buf_index: buf_index + 1] == b'\x00':
+            break
+    question_name = buf[12: buf_index + 1]
     question_type = int('0x0001', 0).to_bytes(2, 'big')
     question_class = int('0x0001', 0).to_bytes(2, 'big')
 
