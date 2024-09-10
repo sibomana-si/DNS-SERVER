@@ -52,7 +52,7 @@ def generate_response(buf: bytes) -> bytes:
     dns_header: bytes = generate_response_header(buf)
     logger.info(f"dns_header: {dns_header}")
 
-    question_count = int.from_bytes(dns_header[5:7], 'big')
+    question_count = int.from_bytes(dns_header[4:6], 'big')
     logger.info(f"question_count: {question_count}")
 
     dns_questions: List[bytes] = []
@@ -104,25 +104,22 @@ def generate_response_header(buf: bytes) -> bytes:
 
 
 def generate_response_question(buf: bytes, question_index) -> bytes:
-    label_prefix = bin(int().from_bytes(buf[question_index: question_index + 1], 'big'))[2:4]
-    logger.info(f"label_prefix: {label_prefix}")
+    buf_index = question_index
+    question_name = b''
+    while buf_index < len(buf):
+        question_byte = buf[buf_index: buf_index + 1]
+        if question_byte == b'\x00':
+            question_name += question_byte
+            break
+        else:
+            pointer_byte = bin(int().from_bytes(question_byte, 'big'))[2:].zfill(8)
+            if pointer_byte[0:2] == '11':
+                pointer_offset = bin(int().from_bytes(buf[buf_index: buf_index + 2], 'big'))[4:]
+                buf_index = int(pointer_offset, 2) - 1
+            else:
+                question_name += question_byte
 
-    if label_prefix == '11':
-        pointer_offset = bin(int().from_bytes(buf[question_index: question_index + 2], 'big'))[4:]
-        buf_offset = int(pointer_offset, 2)
-        buf_index = buf_offset
-        for buf_index in range(buf_offset, len(buf)):
-            if buf[buf_index: buf_index + 1] == b'\x00':
-                break
-        question_name = buf[buf_offset: buf_index + 1]
-        logger.info(f"question_name: {question_name}")
-    else:
-        buf_index = question_index
-        for buf_index in range(question_index, len(buf)):
-            if buf[buf_index: buf_index + 1] == b'\x00':
-                break
-        question_name = buf[question_index: buf_index + 1]
-        logger.info(f"question_name: {question_name}")
+        buf_index += 1
 
     question_type = int('0x0001', 0).to_bytes(2, 'big')
     question_class = int('0x0001', 0).to_bytes(2, 'big')
