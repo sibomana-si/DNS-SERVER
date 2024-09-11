@@ -2,6 +2,7 @@ import socket
 import sys
 import logging
 from typing import List
+from getopt import getopt
 from dataclasses import dataclass, field
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
@@ -24,14 +25,12 @@ class Message:
 
 
 def main():
-    logger.info("STARTING SERVER...")
-
     server_ip, server_port = "127.0.0.1", 2053
     udp_socket: socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_socket.bind((server_ip, server_port))
 
-    try:
-        while True:
+    while True:
+        try:
             buf, source = udp_socket.recvfrom(512)
             logger.info(f"received: {buf} from: {source}")
 
@@ -39,13 +38,9 @@ def main():
             logger.info(f"response: {response} | response_length: {len(response)}")
 
             udp_socket.sendto(response, source)
-
-    except Exception as e:
-        logger.exception(f"Error receiving data: {e}")
-    except KeyboardInterrupt:
-        logger.exception("TERMINAL ERROR:")
-    finally:
-        logger.info("SERVER SHUT DOWN")
+        except Exception as ex:
+            logger.exception(f"Error receiving data: {ex}")
+            break
 
 
 def generate_response(buf: bytes) -> bytes:
@@ -66,7 +61,7 @@ def generate_response(buf: bytes) -> bytes:
         logger.info(f"dns_question: {dns_question}")
 
     for dns_question in dns_questions:
-        dns_answer = generate_response_answer(dns_question)
+        dns_answer = generate_response_answer(buf, dns_question)
         dns_answers.append(dns_answer)
         logger.info(f"dns_answer: {dns_answer}")
 
@@ -127,13 +122,44 @@ def generate_response_question(buf: bytes, question_index) -> bytes:
     return question_name + question_type + question_class
 
 
-def generate_response_answer(dns_question: bytes) -> bytes:
+def generate_response_answer(buf: bytes, dns_question: bytes) -> bytes:
     answer_ttl = int(60).to_bytes(4, 'big')
     answer_length = int(4).to_bytes(2, 'big')
     answer_data = b''.join(int(x, 0).to_bytes(1, 'big') for x in "8.8.8.8".split("."))
 
-    return dns_question + answer_ttl + answer_length + answer_data
+    try:
+        resolver_socket: socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+        resolver_question = buf[:12] + dns_question
+        logger.info(f"resolver_question: {resolver_question}")
+
+        resolver_socket.sendto(resolver_question, resolver_address)
+        resolver_response: bytes= resolver_socket.recv(512)
+        logger.info(f"resolver_response: {resolver_response}")
+
+        resolver_answer: bytes = resolver_response[len(resolver_question):]
+        logger.info(f"resolver_answer: {resolver_answer}")
+        if resolver_answer == b'':
+            resolver_answer = dns_question + answer_ttl + answer_length + answer_data
+        return resolver_answer
+    except Exception as ex:
+        logger.exception(f"Error resolving dns_question: {dns_question}|{ex}")
+        raise ex
 
 
 if __name__ == "__main__":
-    main()
+    logger.info("STARTING SERVER...")
+
+    try:
+        opts = getopt(sys.argv[1:], '', ['resolver='])
+        dns_resolver = ""
+        if len(opts[0]) != 0:
+            dns_resolver = opts[0][0][1]
+            resolver_ip, resolver_port = dns_resolver.split(":")
+            resolver_address = (resolver_ip, int(resolver_port))
+        logger.info(f"dns_resolver: {dns_resolver}")
+        main()
+    except (Exception, KeyboardInterrupt):
+        logger.exception("TERMINAL ERROR:")
+    finally:
+        logger.info("SERVER SHUT DOWN")
