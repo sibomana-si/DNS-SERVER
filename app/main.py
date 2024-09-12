@@ -79,7 +79,7 @@ def generate_response_header(buf: bytes) -> bytes:
     authority_record_count = '0' * 16
     additional_record_count = '0' * 16
 
-    dns_header = bin(int().from_bytes(buf[:12], 'big'))[2:]
+    dns_header = bin(int.from_bytes(buf[:12], 'big'))[2:]
     if len(dns_header) < header_size:
         dns_header = '0' * (header_size - len(dns_header)) + dns_header
 
@@ -98,7 +98,7 @@ def generate_response_header(buf: bytes) -> bytes:
     return dns_header
 
 
-def generate_response_question(buf: bytes, question_index) -> bytes:
+def generate_response_question(buf: bytes, question_index: int) -> bytes:
     buf_index = question_index
     question_name = b''
     while buf_index < len(buf):
@@ -107,9 +107,9 @@ def generate_response_question(buf: bytes, question_index) -> bytes:
             question_name += question_byte
             break
         else:
-            pointer_byte = bin(int().from_bytes(question_byte, 'big'))[2:].zfill(8)
+            pointer_byte = bin(int.from_bytes(question_byte, 'big'))[2:].zfill(8)
             if pointer_byte[0:2] == '11':
-                pointer_offset = bin(int().from_bytes(buf[buf_index: buf_index + 2], 'big'))[4:]
+                pointer_offset = bin(int.from_bytes(buf[buf_index: buf_index + 2], 'big'))[4:]
                 buf_index = int(pointer_offset, 2) - 1
             else:
                 question_name += question_byte
@@ -134,7 +134,7 @@ def generate_response_answer(buf: bytes, dns_question: bytes) -> bytes:
         logger.info(f"resolver_question: {resolver_question}")
 
         resolver_socket.sendto(resolver_question, resolver_address)
-        resolver_response: bytes= resolver_socket.recv(512)
+        resolver_response: bytes = resolver_socket.recv(512)
         logger.info(f"resolver_response: {resolver_response}")
 
         resolver_answer: bytes = resolver_response[len(resolver_question):]
